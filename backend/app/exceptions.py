@@ -174,3 +174,10 @@ class InscricaoSemAtualizacaoParaDesfazerException(InscricaoMonitoriaException):
     def __init__(self, message="Não há atualização anterior para desfazer nesta inscrição."):
         super().__init__(message)
 
+
+class InscricaoTransicaoInvalidaException(InscricaoMonitoriaException):
+    def __init__(self, status_atual: str, status_destino: str):
+        super().__init__(
+            f"Não é possível transicionar de '{status_atual}' para '{status_destino}'."
+        )
+

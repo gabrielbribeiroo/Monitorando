@@ -2,6 +2,7 @@ from typing import List
 from uuid import UUID
 
 from app.business.memento import InscricaoMonitoriaCaretaker
+from app.business.state import obter_estado
 from app.models.inscricao_monitoria import (
     InscricaoMonitoria,
     InscricaoMonitoriaAtualizacao,
@@ -75,6 +76,11 @@ class InscricaoMonitoriaService:
         motivacao = self._validar_motivacao(atualizacao.motivacao)
         status    = self._validar_status(atualizacao.status)
 
+        # State: o status atual decide para quais status a inscricao pode
+        # transicionar (ex.: uma decisao ja tomada — APROVADA/REJEITADA —
+        # nao pode ser revertida por uma atualizacao comum).
+        novo_estado = obter_estado(inscricao_atual.status).transicionar(status)
+
         # Memento: guarda o estado atual antes de sobrescreve-lo, para
         # permitir desfazer apenas esta atualizacao.
         self._caretaker.salvar(inscricao_atual.criar_memento())
@@ -84,7 +90,7 @@ class InscricaoMonitoriaService:
             usuario_id=atualizacao.usuario_id,
             disciplina_id=atualizacao.disciplina_id,
             motivacao=motivacao,
-            status=status,
+            status=novo_estado.nome,
         )
         self._inscricao_repo.update(inscricao)
         return inscricao
