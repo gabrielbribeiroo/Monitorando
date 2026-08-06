@@ -724,7 +724,7 @@ class TestLoginUsuario:
             "senha": "Password123!"
         }
         response = client.post("/usuarios/login", json=payload)
-        assert response.status_code == 400
+        assert response.status_code == 401
         assert response.json()["detail"] == "Login ou senha incorretos."
 
     def test_login_erro_senha_incorreta(self, client: TestClient):
@@ -734,7 +734,7 @@ class TestLoginUsuario:
             "senha": "SenhaIncorreta"
         }
         response = client.post("/usuarios/login", json=payload)
-        assert response.status_code == 400
+        assert response.status_code == 401
         assert response.json()["detail"] == "Login ou senha incorretos."
 
     def test_cadastro_erro_login_invalido(self, client: TestClient):

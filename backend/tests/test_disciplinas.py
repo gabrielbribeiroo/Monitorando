@@ -63,7 +63,7 @@ def test_criar_disciplina_codigo_duplicado(client: TestClient):
 
     # Segunda criação com mesmo código — deve falhar
     response = client.post("/disciplinas/", json=payload)
-    assert response.status_code == 400
+    assert response.status_code == 409
     assert "Já existe uma disciplina com este código" in response.json()["detail"]
 
 

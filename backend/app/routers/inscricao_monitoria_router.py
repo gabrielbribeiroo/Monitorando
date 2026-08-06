@@ -12,6 +12,7 @@ from app.exceptions import (
     InscricaoMotivacaoVaziaException,
     InscricaoSemAtualizacaoParaDesfazerException,
     InscricaoStatusInvalidoException,
+    InscricaoTransicaoInvalidaException,
     UsuarioNaoEncontradoException,
     DisciplinaNaoEncontradaException,
 )
@@ -52,6 +53,8 @@ def atualizar_inscricao(id: UUID, atualizacao: InscricaoMonitoriaAtualizacao, re
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
     except (InscricaoMotivacaoVaziaException, InscricaoStatusInvalidoException) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
+    except InscricaoTransicaoInvalidaException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
 
 
 @router.post("/{id}/desfazer-atualizacao", response_model=InscricaoMonitoriaResponse)

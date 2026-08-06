@@ -82,6 +82,47 @@ def test_atualizar_inscricao_monitoria(client: TestClient):
     assert data["status"] == "APROVADA"
 
 
+def test_atualizar_inscricao_monitoria_permite_reenvio_no_mesmo_status(client: TestClient):
+    inscricao, usuario, disciplina = _criar_inscricao(client)
+
+    client.put(f"/inscricoes-monitoria/{inscricao['id']}", json={
+        "usuario_id": usuario["id"],
+        "disciplina_id": disciplina["id"],
+        "motivacao": "Motivacao inicial.",
+        "status": "APROVADA",
+    })
+
+    response = client.put(f"/inscricoes-monitoria/{inscricao['id']}", json={
+        "usuario_id": usuario["id"],
+        "disciplina_id": disciplina["id"],
+        "motivacao": "Motivacao revisada apos aprovacao.",
+        "status": "APROVADA",
+    })
+
+    assert response.status_code == 200
+    assert response.json()["motivacao"] == "Motivacao revisada apos aprovacao."
+
+
+def test_atualizar_inscricao_monitoria_rejeita_transicao_de_estado_final(client: TestClient):
+    inscricao, usuario, disciplina = _criar_inscricao(client)
+
+    client.put(f"/inscricoes-monitoria/{inscricao['id']}", json={
+        "usuario_id": usuario["id"],
+        "disciplina_id": disciplina["id"],
+        "motivacao": "Motivacao inicial.",
+        "status": "APROVADA",
+    })
+
+    response = client.put(f"/inscricoes-monitoria/{inscricao['id']}", json={
+        "usuario_id": usuario["id"],
+        "disciplina_id": disciplina["id"],
+        "motivacao": "Tentando reverter a decisao.",
+        "status": "REJEITADA",
+    })
+
+    assert response.status_code == 409
+
+
 def test_desfazer_atualizacao_inscricao_monitoria_restaura_estado_anterior(client: TestClient):
     inscricao, usuario, disciplina = _criar_inscricao(client)
 
@@ -148,7 +189,7 @@ def test_criar_inscricao_rejeita_usuario_inexistente(client: TestClient):
     })
 
     assert response.status_code == 404
-    assert "Usuario" in response.json()["detail"]
+    assert "Usuário" in response.json()["detail"]
 
 
 def test_facade_singleton_controller_retorna_quantidade_total_de_entidades(client: TestClient):
