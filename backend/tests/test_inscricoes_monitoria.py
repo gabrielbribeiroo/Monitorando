@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.business.observer import InscricaoStatusObserver
 from app.controllers.facade_singleton_controller import FacadeSingletonController
 from app.main import app
 
@@ -121,6 +122,41 @@ def test_atualizar_inscricao_monitoria_rejeita_transicao_de_estado_final(client:
     })
 
     assert response.status_code == 409
+
+
+def test_atualizar_inscricao_monitoria_notifica_observador_de_mudanca_de_status(client: TestClient):
+    eventos = []
+
+    class ObservadorEspiao(InscricaoStatusObserver):
+        def notificar(self, inscricao, status_anterior):
+            eventos.append((status_anterior, inscricao.status))
+
+    observador = ObservadorEspiao()
+    servico = app.state.inscricao_monitoria_service
+    servico.registrar_observador_status(observador)
+
+    try:
+        inscricao, usuario, disciplina = _criar_inscricao(client)
+
+        # Reenviar o mesmo status (PENDENTE) nao deve gerar notificacao.
+        client.put(f"/inscricoes-monitoria/{inscricao['id']}", json={
+            "usuario_id": usuario["id"],
+            "disciplina_id": disciplina["id"],
+            "motivacao": "Motivacao inalterada.",
+            "status": "PENDENTE",
+        })
+        assert eventos == []
+
+        client.put(f"/inscricoes-monitoria/{inscricao['id']}", json={
+            "usuario_id": usuario["id"],
+            "disciplina_id": disciplina["id"],
+            "motivacao": "Atualizei minha motivacao para a monitoria.",
+            "status": "APROVADA",
+        })
+
+        assert eventos == [("PENDENTE", "APROVADA")]
+    finally:
+        servico.remover_observador_status(observador)
 
 
 def test_desfazer_atualizacao_inscricao_monitoria_restaura_estado_anterior(client: TestClient):
