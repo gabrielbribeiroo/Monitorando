@@ -2,6 +2,7 @@ from typing import List
 from uuid import UUID
 
 from app.business.memento import InscricaoMonitoriaCaretaker
+from app.business.observer import InscricaoStatusObserver, InscricaoStatusSubject, LogInscricaoStatusObserver
 from app.business.state import obter_estado
 from app.models.inscricao_monitoria import (
     InscricaoMonitoria,
@@ -20,6 +21,7 @@ from app.exceptions import (
     UsuarioNaoEncontradoException,
     DisciplinaNaoEncontradaException,
 )
+from app.utils.logger.factory import get_logger
 
 
 class InscricaoMonitoriaService:
@@ -39,6 +41,16 @@ class InscricaoMonitoriaService:
         # Caretaker do padrao Memento: guarda o estado anterior a ultima
         # atualizacao de cada inscricao, para permitir desfaze-la.
         self._caretaker = InscricaoMonitoriaCaretaker()
+        # Subject do padrao Observer: avisa interessados sempre que o
+        # status de uma inscricao muda (atualizacao ou desfazer).
+        self._status_subject = InscricaoStatusSubject()
+        self._status_subject.inscrever(LogInscricaoStatusObserver(get_logger()))
+
+    def registrar_observador_status(self, observer: InscricaoStatusObserver) -> None:
+        self._status_subject.inscrever(observer)
+
+    def remover_observador_status(self, observer: InscricaoStatusObserver) -> None:
+        self._status_subject.remover(observer)
 
     def cadastrar_inscricao(self, cadastro: InscricaoMonitoriaCadastro) -> InscricaoMonitoria:
         self._validar_relacionamentos(cadastro.usuario_id, cadastro.disciplina_id)
@@ -93,10 +105,11 @@ class InscricaoMonitoriaService:
             status=novo_estado.nome,
         )
         self._inscricao_repo.update(inscricao)
+        self._status_subject.notificar_todos(inscricao, inscricao_atual.status)
         return inscricao
 
     def desfazer_ultima_atualizacao(self, id: UUID) -> InscricaoMonitoria:
-        self.buscar_inscricao_por_id(id)
+        inscricao_atual = self.buscar_inscricao_por_id(id)
 
         memento = self._caretaker.obter(id)
         if memento is None:
@@ -107,6 +120,7 @@ class InscricaoMonitoriaService:
         # So e possivel desfazer a atualizacao mais recente: uma vez
         # restaurado, o memento e descartado.
         self._caretaker.descartar(id)
+        self._status_subject.notificar_todos(inscricao_restaurada, inscricao_atual.status)
         return inscricao_restaurada
 
     def remover_inscricao(self, id: UUID) -> None:
